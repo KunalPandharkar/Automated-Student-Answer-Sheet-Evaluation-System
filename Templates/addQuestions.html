@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Subject Answer Evaluation | Add Question Paper</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-KK94CHFLLe+nY2dmCWGMq91rCGa5gtU4mk92HdvYe+M/SXH301p5ILy+dN9+nJOZ" crossorigin="anonymous">
+</head>
+
+
+<style>
+    #input-fields{
+        padding-top:17px;
+    }
+    #input-fields input{
+        margin-bottom: 10px;
+    }
+    .top-header {
+        padding-left: 38px;
+    }
+
+    .form-group{
+        margin-top:10px;
+    }
+
+    .bottom-section h1 {
+        font-size: 28px;
+        padding-top: 25px;
+    }
+</style>
+
+<body>
+
+    <nav class="top-header navbar navbar-expand-lg navbar-dark bg-primary">
+        <a class="navbar-brand" href="/">Subjective Answer Evaluation</a>
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav"
+            aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav">
+                <li class="nav-item active">
+                    <a class="nav-link" href="/">Home</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('submit_questionpaper') }}">Add Question Paper</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/allresults">Download Results</a>
+                </li>
+
+            </ul>
+        </div>
+    </nav>
+    
+    <div class="container mt-5">
+        <h1 class="mb-4">Add Questions</h1>
+        <form method="post" enctype="multipart/form-data">
+            <div class="form-group">
+                <label for="input-number">Number of Questions</label>
+                <input type="number" class="form-control" name="input-number" id="input-number" min="1" max="10" required>
+            </div>
+            <div id="input-fields"></div>
+            <button type="submit" class="btn btn-primary mt-3">Submit</button>
+        </form>
+    </div>
+
+
+    <div class="container mt-5">
+        <div class="card">
+            <div class="card-header">
+                Question
+            </div>
+            <div class="card-body">
+                {% for question in questions %}
+                <h5 class="card-title mt-4">{{question.question}}</h5>
+                <div class="form-group">
+                    <label for="marks">Marks:</label>
+                    <input type="text" class="form-control" id="marks" name="marks" readonly value="{{question.question_marks}}">
+                </div>
+                <div class="form-group">
+                    <label for="answer">Answer:</label>
+                    <textarea class="form-control" id="answer" name="answer" rows="5" readonly>{{question.answer}}</textarea>
+                </div>
+
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"
+    integrity="sha384-ENjdO4Dr2bkBIFxQpeoTz1HIcje39Wm4jDKdf19U8gI4ddQ3GYNS7NTKfAdVQSZe"
+    crossorigin="anonymous"></script>
+
+    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script>
+  
+    <script>
+        $(document).ready(function() {
+            $("#input-number").on("input", function() {
+                var inputNumber = $(this).val();
+                $("#input-fields").empty(); // Clear any previous fields
+                for (var i = 0; i < inputNumber; i++) {
+                    $("#input-fields").append(`
+                        <div class="form-group">
+                            <label for="input-${i}">Question No. ${i+1}</label>
+                            <input type="text" class="form-control" id="input-${i}" name="input-${i}" required>
+                            <label for="textarea-${i}">Answer </label>
+                            <textarea class="form-control" id="textarea-${i}" name="textarea-${i}" rows="6" required></textarea>
+                            <label for="input-${i}">Marks:</label>
+                            <input type="number" class="form-control" id="marks-${i}" name="marks-${i}" required>
+                        </div>
+                    `);
+                }
+            });
+        });
+    </script>
+</body>
+
+</html>

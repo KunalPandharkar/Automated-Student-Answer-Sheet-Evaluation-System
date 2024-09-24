@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Subject Answer Evaluation | Home</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-KK94CHFLLe+nY2dmCWGMq91rCGa5gtU4mk92HdvYe+M/SXH301p5ILy+dN9+nJOZ" crossorigin="anonymous">
+</head>
+
+<style>
+    #current-date::before {
+        content: attr(datetime);
+    }
+
+    #current-date {
+        display: inline-block;
+        font-weight: bold;
+    }
+
+    .top-header {
+        padding-left: 38px;
+    }
+
+    .bottom-section h1 {
+        font-size: 28px;
+        padding-top: 25px;
+    }
+
+    /* Add some padding and margin to the cards */
+    .card {
+        padding: 20px;
+        margin: 10px;
+        border-radius: 10px;
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+        transition: transform 0.2s;
+    }
+
+    .card:hover {
+        transform: scale(1.05);
+        box-shadow: 0 12px 20px rgba(0, 0, 0, 0.3);
+    }
+
+    /* Add a gradient background color to each card */
+    .card-1 {
+        background: linear-gradient(135deg, #c850c0, #4158d0);
+        color: white;
+    }
+
+    .card-2 {
+        background: linear-gradient(135deg, #2193b0, #6dd5ed);
+        color: white;
+    }
+
+    .card-3 {
+        background: linear-gradient(135deg, #fc4a1a, #f7b733);
+        color: white;
+    }
+
+    .card-4 {
+        background: linear-gradient(135deg, #ff416c, #ff4b2b);
+        color: white;
+    }
+
+    /* Add some style to the count and label */
+    .count-label {
+        font-size: 40px;
+        font-weight: bold;
+        margin-top: 10px;
+    }
+
+    .label {
+        font-size: 24px;
+    }
+</style>
+
+<body>
+
+
+    <nav class="top-header navbar navbar-expand-lg navbar-dark bg-primary">
+        <a class="navbar-brand" href="/">Subjective Answer Evaluation</a>
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav"
+            aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav">
+                <li class="nav-item active">
+                    <a class="nav-link" href="/">Home</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('submit_questionpaper') }}">Add Question Paper</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/allresults">Download Results</a>
+                </li>
+
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="row">
+            <div class="col-sm-3">
+                <div class="card card-1">
+                    <div class="count-label">{{student_count}}</div>
+                    <div class="label">Total Students</div>
+                </div>
+            </div>
+            <div class="col-sm-3">
+                <div class="card card-2">
+                    <div class="count-label">{{questions_count}}</div>
+                    <div class="label">Total Questions</div>
+                </div>
+            </div>
+            <div class="col-sm-3">
+                <div class="card card-3">
+                    <div class="count-label"><time id="current-time"></time></div>
+                    <div class="label">Time</div>
+                </div>
+            </div>
+            <div class="col-sm-3">
+                <div class="card card-4">
+                    <div class="count-label"><time id="current-date"></time></div>
+                    <div class="label">Date</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="bottom-section container pt-2">
+        <h1>Upload The Answer Sheeet For Evaluation</h1>
+        <form method="post" enctype="multipart/form-data" style="padding-top: 17px;">
+
+            <div class="mb-3">
+                <label for="formFile" class="form-label">Upload Answer Image</label>
+                <input class="form-control" type="file" name="file" id="file" multiple>
+            </div>
+            <!-- <div class="mb-3">
+                <label for="exampleFormControlTextarea1" class="form-label">Standard answer</label>
+                <textarea class="form-control" name="standard_answer" id="standard_answer" rows="5"></textarea>
+            </div>
+
+            <div class="mb-3">
+                <label for="inputPassword2" class="form-label">Marks</label>
+                <input type="number" class="form-control" name="marks" id="marks" placeholder="Total Marks">
+            </div> -->
+
+            <button type="submit" value="Submit" class="btn btn-success">Generate Marks</button>
+        </form>
+    </div>
+
+
+    <div class="bottom-section container pt-2">
+        <div class="container mt-5">
+            <div class="card">
+                <div class="card-header">
+                    Modal Answer Sheet
+                </div>
+                <div class="card-body">
+                    {% for question in questions %}
+                    <h5 class="card-title mt-4">{{question.question}}</h5>
+                    <div class="form-group">
+                        <label for="marks">Marks:</label>
+                        <input type="text" class="form-control" id="marks" name="marks" readonly
+                            value="{{question.question_marks}}">
+                    </div>
+                    <div class="form-group">
+                        <label for="answer">Answer:</label>
+                        <textarea class="form-control" id="answer" name="answer" rows="5"
+                            readonly>{{question.answer}}</textarea>
+                    </div>
+
+                    <hr>
+
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"
+    integrity="sha384-ENjdO4Dr2bkBIFxQpeoTz1HIcje39Wm4jDKdf19U8gI4ddQ3GYNS7NTKfAdVQSZe"
+    crossorigin="anonymous"></script>
+
+<script>
+    function updateTime() {
+        var now = new Date();
+        var currentTime = document.getElementById('current-time');
+        currentTime.setAttribute('datetime', now.toISOString());
+        currentTime.textContent = now.toLocaleTimeString();
+    }
+
+    // Update the time element every second
+    setInterval(updateTime, 1000);
+
+    function updateDate() {
+        var now = new Date();
+        var currentDate = document.getElementById('current-date');
+        currentDate.setAttribute('datetime', now.toISOString().split('T')[0]); // Extract only the date portion
+        // currentDate.textContent = now.toLocaleDateString();
+    }
+
+    // Update the date element every second
+    setInterval(updateDate, 1000);
+
+
+</script>
+</body>
+
+</html>
