@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Subject Answer Evaluation | Home</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-KK94CHFLLe+nY2dmCWGMq91rCGa5gtU4mk92HdvYe+M/SXH301p5ILy+dN9+nJOZ" crossorigin="anonymous">
+</head>
+
+<style>
+    /* Additional styling for form and classes list */
+    .flex-container {
+        display: flex;
+        flex-direction: column;
+        /* Change to 'row' if you want items in a row */
+        align-items: stretch;
+        /* Align items to stretch */
+        gap: 20px;
+        /* Space between items */
+    }
+
+    .top-header {
+        padding-left: 38px;
+    }
+
+    .bottom-section h1 {
+        font-size: 28px;
+        padding-top: 25px;
+    }
+
+    body {
+        background-color: #f4f7f6;
+    }
+
+    .create-class-card {
+        border-radius: 10px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        background-color: white;
+    }
+
+    .create-class-header {
+        background: linear-gradient(135deg, #28a745 0%, #218838 100%);
+        border-radius: 10px 10px 0 0;
+        padding: 30px;
+        color: white;
+    }
+
+    .create-class-body {
+        padding: 40px;
+    }
+
+    .form-control {
+        border-radius: 8px;
+        padding: 15px;
+    }
+
+    .btn-create {
+        background-color: #28a745;
+        border: none;
+        border-radius: 50px;
+        padding: 12px 25px;
+        font-size: 16px;
+        color: white;
+        transition: background-color 0.3s ease;
+    }
+
+    .btn-create:hover {
+        background-color: #218838;
+    }
+
+    .btn-create:focus {
+        outline: none;
+        box-shadow: none;
+    }
+
+    .alert-info {
+        border-radius: 8px;
+        padding: 15px;
+    }
+
+    .form-container {
+        margin-top: 50px;
+        background-color: white;
+        padding: 30px;
+        border-radius: 10px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    .classes-list {
+        margin-top: 40px;
+    }
+
+    .classes-card {
+        margin: 10px 0;
+        padding: 20px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        background-color: #f9f9f9;
+    }
+</style>
+
+<body>
+
+
+    <nav class="top-header navbar navbar-expand-lg navbar-dark bg-primary">
+        <a class="navbar-brand" href="/">Subjective Answer Evaluation</a>
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav"
+            aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav">
+                <li class="nav-item active">
+                    <a class="nav-link" href="/">Home</a>
+                </li>
+                <li class="nav-item active">
+                    <a class="nav-link" href="{{ url_for('teacher_profile') }}">Profile</a>
+                </li>
+                <li class="nav-item active">
+                    <a class="nav-link" href="{{ url_for('create_class') }}">Class</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('create_test') }}">Exams</a>
+                </li>
+             
+                <li class="nav-item">
+                    <a class="nav-link" href="/logout">Logout</a>
+                </li>
+
+
+            </ul>
+        </div>
+    </nav>
+
+
+    <div class="container mt-4">
+        <div class="form-container">
+            <h2>Update Test {{ test_name.test_name }}</h2>
+            <form method="POST">
+                <div class="mb-4">
+                    <label for="exam_name" class="form-label">Exam Name:</label>
+                    <input type="text" class="form-control" id="exam_name" name="exam_name"
+                        placeholder="Enter exam name" value="{{test_name.test_name}}" required>
+                </div>
+                <div class="mb-4">
+                    <label for="exam_date" class="form-label">Exam Date:</label>
+                    <input type="date" class="form-control" id="exam_date" name="exam_date"
+                        placeholder="Enter exam date" required value="{{test_name.test_date}}">
+                </div>
+                <div class="mb-4">
+                    <label for="total_marks" class="form-label">Total Marks:</label>
+                    <input type="number" class="form-control" id="total_marks" name="total_marks"
+                        placeholder="Enter total marks" required value="{{test_name.total_marks}}">
+                </div>
+                <button type="submit" class="btn btn-primary">Update Test</button>
+            </form>
+        </div>
+    </div>
+</body>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"
+    integrity="sha384-ENjdO4Dr2bkBIFxQpeoTz1HIcje39Wm4jDKdf19U8gI4ddQ3GYNS7NTKfAdVQSZe"
+    crossorigin="anonymous"></script>
+
+
+</body>
+
+</html>

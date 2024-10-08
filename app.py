@@ -1,4 +1,5 @@
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, redirect, url_for, session, flash
+from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 import matplotlib.pyplot as plt
 import numpy as np
 import os
@@ -16,6 +17,10 @@ import mysql.connector
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+mysqlconnector://root:@localhost:3306/subjective_analysis'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SECRET_KEY'] = os.urandom(24)
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'  # Redirect here if user tries to access a protected route
 
 # Initialize database object
 db = SQLAlchemy(app)
@@ -26,14 +31,295 @@ class Student(db.Model):
     marks = db.Column(db.Integer)
     total_marks = db.Column(db.Integer)
 
+
+class Teacher(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100))
+    mobile_number = db.Column(db.String(15))
+    password = db.Column(db.String(128))
+    @property
+    def is_active(self):
+        # Return True if the teacher is active (implement your own logic if necessary)
+        return True  # or add your logic here
+
+    @property
+    def is_authenticated(self):
+        return True  # This will be handled by Flask-Login
+
+    @property
+    def is_anonymous(self):
+        return False  # This will also be handled by Flask-Login
+
+    def get_id(self):
+        return str(self.id)  # Return the unique ID of the teacher
+
+
+class TeachersClasses(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100))
+    subject = db.Column(db.String(100))
+    studentcount = db.Column(db.Integer, nullable=False)
+    
+    # Foreign key referencing the teachers table
+    teacher_id = db.Column(db.Integer, db.ForeignKey('teacher.id'), nullable=False)
+    
+    # Relationship to access the teacher's information from this table
+    teacher = db.relationship('Teacher', backref=db.backref('teacher_classes', lazy=True))
+
+      # Relationship with ClassesTests
+    tests = db.relationship('ClassesTests', backref=db.backref('class_relation', lazy=True))
+
+    
+class ClassesTests(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    
+    # New fields for test information
+    test_name = db.Column(db.String(100), nullable=False)   # Test name
+    test_date = db.Column(db.Date, nullable=False)          # Test date
+    total_marks = db.Column(db.Integer, nullable=False)     # Total marks for the test
+
+    # Foreign key referencing the TeachersClasses table
+    class_id = db.Column(db.Integer, db.ForeignKey('teachers_classes.id'), nullable=False)
+    
+    # Relationship to access the class information from this table
+    teachers_classes = db.relationship('TeachersClasses', backref=db.backref('class_tests', lazy=True))
+
+    # Foreign key referencing the teachers table
+    teacher_id = db.Column(db.Integer, db.ForeignKey('teacher.id'), nullable=False)
+    
+    # Relationship to access the teacher's information from this table
+    teacher_classtests = db.relationship('Teacher', backref=db.backref('teacher_test_classes', lazy=True))
+
+
 class QuestionAnswers(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     question = db.Column(db.String(100))
     answer = db.Column(db.String(600))
     question_marks = db.Column(db.Integer)
+     # Foreign key referencing the teachers table
+    classtest_id = db.Column(db.Integer, db.ForeignKey('classes_tests.id'), nullable=False)
+    # Relationship to access the teacher's information from this table
+    teacher = db.relationship('ClassesTests', backref=db.backref('classes', lazy=True))
 
+
+@login_manager.user_loader
+def load_user(user_id):
+    return Teacher.query.get(int(user_id))  # Adjust based on your user model
+
+# Route for teacher signup
+@app.route('/signup', methods=['GET', 'POST'])
+def signup():
+    if request.method == 'POST':
+        name = request.form['name']
+        mobile_number = request.form['mobile_number']
+        password = request.form['password']
+
+        # Check if the mobile number already exists
+        teacher = Teacher.query.filter_by(mobile_number=mobile_number).first()
+        if teacher:
+            flash('Mobile number already registered. Please login.', 'error')
+            return redirect(url_for('login'))
+
+        # Hash the password for security
+        password_teacher = password
+
+        # Add the new teacher to the database
+        new_teacher = Teacher(name=name, mobile_number=mobile_number, password=password_teacher)
+        db.session.add(new_teacher)
+        db.session.commit()
+
+        flash('Signup successful! Please login.', 'success')
+        return redirect(url_for('login'))
+
+    return render_template('signup.html')
+
+# Route for teacher login
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    session.clear()  # Clears all session data
+
+    # Check if the teacher is already logged in
+    if 'teacher_id' in session:
+        flash('You are already logged in.', 'info')
+        return redirect(url_for('create_test'))  # Redirect to home page
+    
+    if request.method == 'POST':
+        mobile_number = request.form['mobile_number']
+        password = request.form['password']
+
+        # Find the teacher by mobile number
+        teacher = Teacher.query.filter_by(mobile_number=mobile_number).first()
+
+        print('here',teacher.password)
+
+
+        
+
+        if teacher and (teacher.password == password):
+            # Store teacher ID in session to track login
+            session['teacher_id'] = teacher.id
+            session['teacher_name'] = teacher.name
+            print('here',teacher.name)
+            flash(f'Welcome, {teacher.name}!', 'success')
+            flash('You have been logged out.', 'success')
+            login_user(teacher)
+            return redirect(url_for('create_test'))
+        else:
+            flash('Invalid login credentials. Please try again.', 'error')
+
+    return render_template('login.html')
+# Route for teacher logout
+@app.route('/logout')
+def logout():
+    session.pop('teacher_id', None)
+    session.pop('teacher_name', None)
+    flash('You have been logged out.', 'success')
+    return redirect(url_for('login'))
+
+
+@app.route('/teacher_profile', methods=['GET', 'POST'])
+def teacher_profile():
+    if 'teacher_id' not in session:
+        flash('Please log in to access your profile.')
+        return redirect(url_for('login'))
+
+    # Fetch the logged-in teacher from the database
+    teacher = Teacher.query.filter_by(id=session['teacher_id']).first()
+
+       # Calculating totals
+    total_classes = TeachersClasses.query.filter_by(teacher_id=teacher.id).count()
+    total_students = sum([cls.studentcount for cls in teacher.teacher_classes])
+    total_tests = ClassesTests.query.filter_by(teacher_id=teacher.id).count()
+
+    if request.method == 'POST':
+        # Get form data
+        name = request.form['name']
+        mobile_number = request.form['mobile_number']
+
+        # Update teacher information
+        if name and mobile_number:
+            teacher.name = name
+            teacher.mobile_number = mobile_number
+
+            # Commit the changes to the database
+            db.session.commit()
+            flash('Profile updated successfully!')
+        else:
+            flash('All fields are required.')
+
+    return render_template('teacher_profile.html', teacher=teacher,total_classes=total_classes, total_students=total_students, total_tests=total_tests)
+
+@app.route('/create_class', methods=['GET', 'POST'])
+@login_required
+def create_class():
+    if request.method == 'POST':
+        class_name = request.form['class_name']
+        subject = request.form['subject']
+        student_count = request.form['student_count']
+
+        # Create a new class entry in the database
+        new_class = TeachersClasses(
+            teacher_id=session['teacher_id'],
+            name=class_name,
+            subject=subject,
+            studentcount=student_count
+        )
+        db.session.add(new_class)
+        db.session.commit()
+
+        flash('Class created successfully!')
+        return redirect(url_for('create_class'))
+     # Get classes created by the logged-in teacher
+    classes = TeachersClasses.query.filter_by(teacher_id=current_user.id).all()
+    return render_template('create_class.html', classes=classes)
+
+@app.route('/create_test/', methods=['GET', 'POST'])
 @app.route('/', methods=['GET', 'POST'])
-def upload_file():
+@login_required  # Ensure the teacher is logged in
+def create_test():
+    # class_info = TeachersClasses.query.get(class_id)
+    
+    if request.method == 'POST':
+        test_name = request.form['exam_name']
+        test_date = request.form['exam_date']
+        total_marks = request.form['total_marks']
+        class_id = request.form['class_id']
+        
+        # Create a new test entry
+        new_test = ClassesTests(test_name=test_name, test_date=test_date, total_marks=total_marks, class_id=class_id, teacher_id=current_user.id)
+        db.session.add(new_test)
+        db.session.commit()
+
+        flash('Test created successfully!', 'success')
+        return redirect(url_for('create_test'))  # Redirect to the classes page
+      # Get classes created by the logged-in teacher
+        # Fetch classes for the dropdown
+    classes = TeachersClasses.query.filter_by(teacher_id=current_user.id).all()
+    class_tests = ClassesTests.query.filter_by(teacher_id=current_user.id).all()
+
+    return render_template('create_test.html',exams=class_tests,classes=classes)  # Render the test creation form
+
+@app.route('/delete_test/<int:test_id>', methods=['POST'])
+def delete_test(test_id):
+    # Find the class by ID
+    test_to_delete = ClassesTests.query.get(test_id)
+    if test_to_delete:
+        db.session.delete(test_to_delete)
+        db.session.commit()
+        flash('Test deleted successfully!', 'success')
+    else:
+        flash('Test not found!', 'danger')
+    
+    return redirect(url_for('create_test'))  # Redirect back to the create class page
+
+@app.route('/update_test/<int:test_id>', methods=['GET', 'POST'])
+def update_test(test_id):
+    test_to_update = ClassesTests.query.get_or_404(test_id)
+
+    if request.method == 'POST':
+        test_to_update.test_name = request.form['exam_name']
+        test_to_update.test_date = request.form['exam_date']
+        test_to_update.total_marks = request.form['total_marks']
+        
+        db.session.commit()
+        return redirect(url_for('create_test'))
+
+    return render_template('update_test.html', test_name=test_to_update)
+
+@app.route('/update_class/<int:class_id>', methods=['GET', 'POST'])
+def update_class(class_id):
+    class_to_update = TeachersClasses.query.get_or_404(class_id)
+
+    if request.method == 'POST':
+        class_to_update.name = request.form['class_name']
+        class_to_update.subject = request.form['subject']
+        class_to_update.studentcount = request.form['student_count']
+        
+        db.session.commit()
+        return redirect(url_for('create_class'))
+
+    return render_template('update_class.html', class_name=class_to_update)
+
+@app.route('/delete_class/<int:class_id>', methods=['POST'])
+def delete_class(class_id):
+    # Find the class by ID
+    class_to_delete = TeachersClasses.query.get(class_id)
+    if class_to_delete:
+        db.session.delete(class_to_delete)
+        db.session.commit()
+        flash('Class deleted successfully!', 'success')
+    else:
+        flash('Class not found!', 'danger')
+    
+    return redirect(url_for('create_class'))  # Redirect back to the create class page
+
+@app.route('/generate_result/<int:test_id>', methods=['GET', 'POST'])
+def generate_result(test_id):
+    # Check if the teacher is logged in
+    if 'teacher_id' not in session:
+        flash('Please login first.', 'warning')
+        return redirect(url_for('login'))
+    
     if request.method == 'POST':
         # Get the uploaded image file
         # uploaded_file = request.files['file']
@@ -51,25 +337,27 @@ def upload_file():
         # standard_answer = request.form['standard_answer']
         # marks = int(request.form['marks'])
 
-            #Process Image
-            os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = r'Google_Key.json'
-            client = vision_v1.ImageAnnotatorClient()
+            # # Process Image
+            # os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = r'Google_Key.json'
+            # client = vision_v1.ImageAnnotatorClient()
 
-            with io.open(os.path.join(image_path),'rb') as image_file:
-                content = image_file.read()
+            # with io.open(os.path.join(image_path),'rb') as image_file:
+            #     content = image_file.read()
 
-            image = vision_v1.types.Image(content=content)
+            # image = vision_v1.types.Image(content=content)
 
-            response = client.text_detection(image=image)
-            texts = response.text_annotations
-            # Concatenate only the first item in the texts list
-            all_text = texts[0].description if len(texts) > 0 else ''
+            # response = client.text_detection(image=image)
+            # texts = response.text_annotations
+            # # Concatenate only the first item in the texts list
+            # all_text = texts[0].description if len(texts) > 0 else ''
 
-            all_text = all_text.replace('\n', ' ')
-            ans_text = ans_text + all_text
+            # all_text = all_text.replace('\n', ' ')
+            # ans_text = ans_text + all_text
 
 
         print(ans_text)
+
+        ans_text = 'Roll - BE20506F1010 Q1) python is a powerful '
 
         all_text = ans_text
         str_ans = all_text
@@ -196,21 +484,21 @@ def upload_file():
 
         # Clear the plot to avoid issues with overlapping images
         plt.clf()
-
+        
+    
+        chart_path = url_for('static', filename='images/chart.png')
+ 
      
         # Render the HTML template with the uploaded image file, textarea, and pie chart
         return render_template('result.html', image_path=uploaded_files, student_marks=marks_scored, chart_path=chart_path,total_marks=total_question_marks,student_percentage=percentage_student,roll_number=roll_number)
-    student_count = db.session.query(Student).count()
-    questions_count = db.session.query(QuestionAnswers).count()
-    questions = QuestionAnswers.query.all()
+   
         
 
-    return render_template('upload.html',questions_count=questions_count,student_count=student_count,questions=questions)
-
+    return render_template('generate_result.html',test_id=test_id)
 
 # Define a route to handle form submission
-@app.route("/submit_questionpaper",methods=['GET', 'POST'])
-def submit_questionpaper():
+@app.route("/submit_questionpaper/<int:test_id>",methods=['GET', 'POST'])
+def submit_questionpaper(test_id):
     if request.method == 'POST':
         input_number = int(request.form['input-number'])
         inputs = []
@@ -223,13 +511,26 @@ def submit_questionpaper():
         # Do something with the inputs and textareas
         # Insert data into the database
         for i in range(len(inputs)):
-            student = QuestionAnswers(question=inputs[i], answer=textareas[i],question_marks=marks[i])
+            student = QuestionAnswers(question=inputs[i], answer=textareas[i],question_marks=marks[i],classtest_id=test_id)
             db.session.add(student)
             db.session.commit()
-    questions = QuestionAnswers.query.all()
+        return redirect(url_for('submit_questionpaper',test_id=test_id))
+    questions = QuestionAnswers.query.filter_by(classtest_id=test_id).all()
         
-    return render_template("addQuestions.html",questions=questions)
-
+    return render_template("addQuestions.html",questions=questions,test_id=test_id)
+    
+@app.route('/delete_question/<int:test_id>/<int:question_id>', methods=['POST'])
+def delete_question(test_id,question_id):
+    # Find the class by ID
+    question_to_delete = QuestionAnswers.query.get(question_id)
+    if question_to_delete:
+        db.session.delete(question_to_delete)
+        db.session.commit()
+        flash('Question deleted successfully!', 'success')
+    else:
+        flash('Question not found!', 'danger')
+    
+    return redirect(url_for('submit_questionpaper',test_id=test_id))  # Redirect back to the create class page
 
 @app.route('/allresults')
 def download_results():

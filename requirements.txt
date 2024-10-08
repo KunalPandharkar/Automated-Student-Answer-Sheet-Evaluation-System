@@ -1,0 +1,8 @@
+Flask
+Flask-SQLAlchemy
+mysql-connector-python
+matplotlib
+nltk
+scikit-learn
+Flask-Login
+google-cloud-vision
