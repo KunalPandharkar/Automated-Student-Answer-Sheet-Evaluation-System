@@ -5,4 +5,5 @@ matplotlib
 nltk
 scikit-learn
 Flask-Login
+boto3
 google-cloud-vision

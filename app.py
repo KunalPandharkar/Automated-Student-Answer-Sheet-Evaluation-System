@@ -1,7 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 import matplotlib.pyplot as plt
-import os
+import os, io
 from google.cloud import vision_v1
 import string
 from nltk.corpus import stopwords
@@ -11,6 +11,7 @@ from flask_sqlalchemy import SQLAlchemy
 import signal
 import sys
 import matplotlib
+import boto3
 
 matplotlib.use('Agg')
 
@@ -394,28 +395,33 @@ def generate_result(test_id):
         # Get the standard answer and marks
         # standard_answer = request.form['standard_answer']
         # marks = int(request.form['marks'])
+              # Initialize Textract client
+           
 
-            # # Process Image
-            # os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = r'Google_Key.json'
-            # client = vision_v1.ImageAnnotatorClient()
+             #Process Image
+            with io.open(os.path.join(image_path),'rb') as image_file:
+                image_bytes = image_file.read()
 
-            # with io.open(os.path.join(image_path),'rb') as image_file:
-            #     content = image_file.read()
-
-            # image = vision_v1.types.Image(content=content)
-
-            # response = client.text_detection(image=image)
-            # texts = response.text_annotations
-            # # Concatenate only the first item in the texts list
-            # all_text = texts[0].description if len(texts) > 0 else ''
-
-            # all_text = all_text.replace('\n', ' ')
-            # ans_text = ans_text + all_text
+            # Call Amazon Textract to extract text from the image
+            response = textract_client.detect_document_text(
+                Document={'Bytes': image_bytes}
+            )
+            # Check if 'Blocks' exists in response
+            if 'Blocks' not in response:
+                print("Error: No 'Blocks' found in response.")
+                return ""
+              # Extract the detected text
+            extracted_text = ""
+            for block in response['Blocks']:
+                if block['BlockType'] == 'LINE':
+                    extracted_text += block['Text'] + '\n'
+            
+            ans_text = ans_text + extracted_text
 
 
         print(ans_text)
 
-        ans_text = 'Roll - 2021 01103 0003qererdafd Q1) dbms is known a  managementt '
+        # ans_text = 'Roll - 2021 01103 0003qererdafd Q1) dbms is known a  managementt '
 
         all_text = ans_text
         str_ans = all_text
