@@ -1,18 +1,18 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 import matplotlib.pyplot as plt
-import numpy as np
 import os
-import os,io
 from google.cloud import vision_v1
 import string
-import nltk
-from sklearn.metrics.pairwise import cosine_similarity
-from sklearn.feature_extraction.text import TfidfVectorizer
-import matplotlib.pyplot as plt
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
 import re
 from flask_sqlalchemy import SQLAlchemy
-import mysql.connector
+import signal
+import sys
+import matplotlib
+
+matplotlib.use('Agg')
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+mysqlconnector://root:@localhost:3306/subjective_analysis'
@@ -22,6 +22,12 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'  # Redirect here if user tries to access a protected route
 
+def signal_handler(sig, frame):
+    print('Shutting down...')
+    sys.exit(0)
+
+signal.signal(signal.SIGINT, signal_handler)
+signal.signal(signal.SIGTERM, signal_handler)
 # Initialize database object
 db = SQLAlchemy(app)
 
@@ -30,7 +36,11 @@ class Student(db.Model):
     roll = db.Column(db.String(30))
     marks = db.Column(db.Integer)
     total_marks = db.Column(db.Integer)
+       # Add test_id as a foreign key referencing the ClassesTests table
+    test_id = db.Column(db.Integer, db.ForeignKey('classes_tests.id'), nullable=True)  # Adjust the table name as needed
 
+    # Relationship to access the related test information
+    class_test = db.relationship('ClassesTests', back_populates='students')  # This will point to 'students' in ClassesTests
 
 class Teacher(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -52,6 +62,12 @@ class Teacher(db.Model):
 
     def get_id(self):
         return str(self.id)  # Return the unique ID of the teacher
+    
+      # Relationship with TeachersClasses
+    teacher_classes = db.relationship('TeachersClasses', back_populates='teacher')
+
+    # Relationship with ClassesTests
+    teacher_test_classes = db.relationship('ClassesTests', back_populates='teacher_classtests')
 
 
 class TeachersClasses(db.Model):
@@ -63,11 +79,11 @@ class TeachersClasses(db.Model):
     # Foreign key referencing the teachers table
     teacher_id = db.Column(db.Integer, db.ForeignKey('teacher.id'), nullable=False)
     
-    # Relationship to access the teacher's information from this table
-    teacher = db.relationship('Teacher', backref=db.backref('teacher_classes', lazy=True))
+      # Relationship to access the teacher's information from this table
+    teacher = db.relationship('Teacher', back_populates='teacher_classes')
 
-      # Relationship with ClassesTests
-    tests = db.relationship('ClassesTests', backref=db.backref('class_relation', lazy=True))
+    # Relationship with ClassesTests
+    class_tests = db.relationship('ClassesTests', back_populates='teachers_classes')
 
     
 class ClassesTests(db.Model):
@@ -77,19 +93,23 @@ class ClassesTests(db.Model):
     test_name = db.Column(db.String(100), nullable=False)   # Test name
     test_date = db.Column(db.Date, nullable=False)          # Test date
     total_marks = db.Column(db.Integer, nullable=False)     # Total marks for the test
+    test_subject = db.Column(db.String(100))
+
 
     # Foreign key referencing the TeachersClasses table
     class_id = db.Column(db.Integer, db.ForeignKey('teachers_classes.id'), nullable=False)
-    
+
     # Relationship to access the class information from this table
-    teachers_classes = db.relationship('TeachersClasses', backref=db.backref('class_tests', lazy=True))
+    teachers_classes = db.relationship('TeachersClasses', back_populates='class_tests')
 
     # Foreign key referencing the teachers table
     teacher_id = db.Column(db.Integer, db.ForeignKey('teacher.id'), nullable=False)
-    
-    # Relationship to access the teacher's information from this table
-    teacher_classtests = db.relationship('Teacher', backref=db.backref('teacher_test_classes', lazy=True))
 
+    # Relationship to access the teacher's information from this table
+    teacher_classtests = db.relationship('Teacher', back_populates='teacher_test_classes')
+
+    # Relationship to access all students who took this test
+    students = db.relationship('Student', back_populates='class_test')  # Allows accessing students who took this test
 
 class QuestionAnswers(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -243,10 +263,11 @@ def create_test():
         test_name = request.form['exam_name']
         test_date = request.form['exam_date']
         total_marks = request.form['total_marks']
+        test_subject = request.form['subject_name']
         class_id = request.form['class_id']
         
         # Create a new test entry
-        new_test = ClassesTests(test_name=test_name, test_date=test_date, total_marks=total_marks, class_id=class_id, teacher_id=current_user.id)
+        new_test = ClassesTests(test_name=test_name, test_date=test_date, total_marks=total_marks,test_subject=test_subject,class_id=class_id, teacher_id=current_user.id)
         db.session.add(new_test)
         db.session.commit()
 
@@ -280,6 +301,7 @@ def update_test(test_id):
         test_to_update.test_name = request.form['exam_name']
         test_to_update.test_date = request.form['exam_date']
         test_to_update.total_marks = request.form['total_marks']
+        test_to_update.test_subject = request.form['subject_name']
         
         db.session.commit()
         return redirect(url_for('create_test'))
@@ -312,6 +334,42 @@ def delete_class(class_id):
         flash('Class not found!', 'danger')
     
     return redirect(url_for('create_class'))  # Redirect back to the create class page
+
+# Preprocess the text by removing punctuation and converting to lowercase
+def preprocess(text):
+    translator = str.maketrans('', '', string.punctuation)
+    return text.translate(translator).lower()
+
+# Remove stopwords
+def remove_stopwords(tokens):
+    stop_words = set(stopwords.words('english'))
+    return [word for word in tokens if word not in stop_words]
+
+# Calculate Jaccard similarity
+def jaccard_similarity(set1, set2):
+    intersection = len(set1.intersection(set2))
+    union = len(set1.union(set2))
+    return intersection / union if union != 0 else 0
+
+
+# Main comparison function
+def compare_answers(answer_1, answer_2):
+    # Preprocess the answers
+    answer_1 = preprocess(answer_1)
+    answer_2 = preprocess(answer_2)
+
+    # Tokenize the answers and remove stopwords
+    tokens_1 = remove_stopwords(word_tokenize(answer_1))
+    tokens_2 = remove_stopwords(word_tokenize(answer_2))
+
+    # Calculate Jaccard similarity
+    set1 = set(tokens_1)
+    set2 = set(tokens_2)
+    similarity = jaccard_similarity(set1, set2)
+
+    # Generate the percentage of correctness
+    percentage_correct = similarity * 100
+    return round(percentage_correct)
 
 @app.route('/generate_result/<int:test_id>', methods=['GET', 'POST'])
 def generate_result(test_id):
@@ -357,7 +415,7 @@ def generate_result(test_id):
 
         print(ans_text)
 
-        ans_text = 'Roll - BE20506F1010 Q1) python is a powerful '
+        ans_text = 'Roll - BE20506F1011 Q1) dbms is known a  managementt '
 
         all_text = ans_text
         str_ans = all_text
@@ -410,7 +468,7 @@ def generate_result(test_id):
         else:
             print("No roll number found in the input string.")
 
-        answers_db = QuestionAnswers.query.all()
+        answers_db = QuestionAnswers.query.filter_by(classtest_id=test_id).all()
 
         question_index = 0
 
@@ -427,28 +485,28 @@ def generate_result(test_id):
         
 
 
-            # Preprocess the text by removing punctuation and converting to lowercase
-            translator = str.maketrans('', '', string.punctuation)
-            answer_1 = answer_1.translate(translator).lower()
-            answer_2 = answer_2.translate(translator).lower()
+            # # Preprocess the text by removing punctuation and converting to lowercase
+            # translator = str.maketrans('', '', string.punctuation)
+            # answer_1 = answer_1.translate(translator).lower()
+            # answer_2 = answer_2.translate(translator).lower()
 
-            # Tokenize the text by splitting on whitespace
-            tokens_1 = nltk.word_tokenize(answer_1)
-            tokens_2 = nltk.word_tokenize(answer_2)
+            # # Tokenize the text by splitting on whitespace
+            # tokens_1 = nltk.word_tokenize(answer_1)
+            # tokens_2 = nltk.word_tokenize(answer_2)
 
-            # Create a set of unique tokens
-            unique_tokens = set(tokens_1 + tokens_2)
+            # # Create a set of unique tokens
+            # unique_tokens = set(tokens_1 + tokens_2)
 
-            # Vectorize the text using TF-IDF
-            vectorizer = TfidfVectorizer(vocabulary=unique_tokens)
-            vectors = vectorizer.fit_transform([answer_1, answer_2]).toarray()
+            # # Vectorize the text using TF-IDF
+            # vectorizer = TfidfVectorizer(vocabulary=unique_tokens)
+            # vectors = vectorizer.fit_transform([answer_1, answer_2]).toarray()
 
-            # Calculate the cosine similarity between the two vectors
-            similarity = cosine_similarity([vectors[0]], [vectors[1]])[0][0]
+            # # Calculate the cosine similarity between the two vectors
+            # similarity = cosine_similarity([vectors[0]], [vectors[1]])[0][0]
 
-            # Generate the percentage of correctness
-            percentage_correct = similarity * 100
-            percentage_correct = round(percentage_correct)
+            # # Generate the percentage of correctness
+            # percentage_correct = similarity * 100
+            percentage_correct = compare_answers(answer_1,answer_2)
 
             total_question_marks += int(answers_db[question_index].question_marks)
 
@@ -464,7 +522,7 @@ def generate_result(test_id):
 
 
         # Insert data into the database
-        student = Student(roll=roll_number, marks=marks_scored,total_marks=total_question_marks)
+        student = Student(roll=roll_number, marks=marks_scored,total_marks=total_question_marks,test_id=test_id)
         db.session.add(student)
         db.session.commit()
         
@@ -487,10 +545,14 @@ def generate_result(test_id):
         
     
         chart_path = url_for('static', filename='images/chart.png')
- 
+        #  Close all open figures
+        plt.close('all')
+        print('test id = ',test_id)
+        test_record = ClassesTests.query.get(test_id)
+        
      
         # Render the HTML template with the uploaded image file, textarea, and pie chart
-        return render_template('result.html', image_path=uploaded_files, student_marks=marks_scored, chart_path=chart_path,total_marks=total_question_marks,student_percentage=percentage_student,roll_number=roll_number)
+        return render_template('result.html',test_id=test_record,image_path=uploaded_files, student_marks=marks_scored, chart_path=chart_path,total_marks=total_question_marks,student_percentage=percentage_student,roll_number=roll_number)
    
         
 
@@ -532,10 +594,32 @@ def delete_question(test_id,question_id):
     
     return redirect(url_for('submit_questionpaper',test_id=test_id))  # Redirect back to the create class page
 
-@app.route('/allresults')
-def download_results():
-    students = Student.query.all()
-    return render_template("allresults.html",students=students)
+@app.route('/result/<int:test_id>/<int:student_id>')
+def result_route():
+    # Retrieve the data from query parameters
+    uploaded_files = request.args.get('image_path')
+    marks_scored = request.args.get('student_marks')
+    total_question_marks = request.args.get('total_marks')
+    percentage_student = request.args.get('student_percentage')
+    roll_number = request.args.get('roll_number')
+    chart_path = request.args.get('chart_path')  # Get the chart path directly
+
+    # Render the HTML template with the retrieved variables
+    return render_template('result.html', 
+                           image_path=uploaded_files, 
+                           student_marks=marks_scored, 
+                           chart_path=chart_path, 
+                           total_marks=total_question_marks, 
+                           student_percentage=percentage_student, 
+                           roll_number=roll_number)
+
+@app.route('/allresults/<int:test_id>')
+def download_results(test_id):
+    # Assuming there's a relationship in the Student model that references the test.
+    students = Student.query.filter(Student.test_id == test_id).all()
+    test_record = ClassesTests.query.get(test_id)
+
+    return render_template("allresults.html",students=students,test_record=test_record)
 
 if __name__ == '__main__':
     # Create the images directory if it doesn't exist

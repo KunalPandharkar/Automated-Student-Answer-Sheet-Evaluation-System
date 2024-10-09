@@ -50,9 +50,11 @@
    h2 {
       font-size: 28px;
    }
+
+   
 </style>
 
-<nav class="top-header navbar navbar-expand-lg navbar-dark bg-primary">
+<nav class="top-header navbar navbar-expand-lg navbar-dark bg-primary" id="navbar">
    <a class="navbar-brand" href="/">Subjective Answer Evaluation</a>
    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav"
       aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
@@ -109,7 +111,7 @@
                      <th>Total Marks</th>
                   </tr>
                   <tr>
-                     <td>English</td>
+                     <td>{{test_id.test_subject}}</td>
                      <td>{{student_marks}}</td>
                      <td>{{total_marks}}</td>
                   </tr>

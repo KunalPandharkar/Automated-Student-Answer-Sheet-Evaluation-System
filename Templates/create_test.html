@@ -177,6 +177,11 @@
                                     placeholder="Enter exam name" required>
                             </div>
                             <div class="mb-4">
+                                <label for="subject_name" class="form-label">Subject Name:</label>
+                                <input type="text" class="form-control" id="subject_name" name="subject_name"
+                                    placeholder="Enter subject name" required>
+                            </div>
+                            <div class="mb-4">
                                 <label for="exam_date" class="form-label">Exam Date:</label>
                                 <input type="date" class="form-control" id="exam_date" name="exam_date"
                                     placeholder="Enter exam date" required>
@@ -203,11 +208,12 @@
                         <div class="card-body">
                             <h5 class="card-title">{{ exam.test_name }}</h5>
                             <p class="card-text">Date: {{ exam.test_date }}</p>
-                            <p class="card-text">Class: {{ exam.class_relation.name }}</p>
+                            <p class="card-text">Class: {{ exam.teachers_classes.name }}</p>
+                            <p class="card-text">Subject: {{ exam.test_subject }}</p>
                             <p class="card-text mb-4">Total Marks: {{ exam.total_marks }}</p>
                             <a href="{{ url_for('submit_questionpaper', test_id=exam.id) }}" class="btn btn-success">Set Question Paper</a>
                             <a href="{{ url_for('generate_result', test_id=exam.id) }}" class="btn btn-success">Check Answersheets</a>
-                            <a href="{{ url_for('submit_questionpaper', test_id=exam.id) }}" class="btn btn-success">Results</a>
+                            <a href="{{ url_for('download_results', test_id=exam.id) }}" class="btn btn-success">Results</a>
                             <a href="{{ url_for('update_test', test_id=exam.id) }}" class="btn btn-warning">Update Test</a>
                             <form action="{{ url_for('delete_test', test_id=exam.id) }}" method="POST" style="display:inline;">
                                 <button type="submit" class="btn btn-danger">Delete Test</button>
