@@ -415,7 +415,7 @@ def generate_result(test_id):
 
         print(ans_text)
 
-        ans_text = 'Roll - BE20506F1011 Q1) dbms is known a  managementt '
+        ans_text = 'Roll - 2021 01103 0003qererdafd Q1) dbms is known a  managementt '
 
         all_text = ans_text
         str_ans = all_text
@@ -458,15 +458,17 @@ def generate_result(test_id):
 
         # Using regular expression to extract roll number
         # Using regular expressions to extract roll number, name, and subject
-        roll_pattern = r"\bBE\d+\w*"
-        roll_match = re.search(roll_pattern, output_str)
+        # roll_pattern = r"\bBE\d+\w*"
+        # roll_match = re.search(roll_pattern, output_str)
         
-        roll_number = 0
+        # roll_number = 0
 
-        if roll_match:
-            roll_number = roll_match.group(0)
-        else:
-            print("No roll number found in the input string.")
+        # if roll_match:
+        #     roll_number = roll_match.group(0)
+        # else:
+        #     print("No roll number found in the input string.")
+
+        roll_number = extract_prn_number(output_str)
 
         answers_db = QuestionAnswers.query.filter_by(classtest_id=test_id).all()
 
@@ -557,6 +559,26 @@ def generate_result(test_id):
         
 
     return render_template('generate_result.html',test_id=test_id)
+
+def extract_prn_number(input_string):
+    # Define the regex pattern to match the PRN number
+    # The pattern matches a number starting with 2021 followed by any 11 digits
+    pattern = r'\b2021[\s]*(\d{5})[\s]*(\d{4})|202\s*\d{3}\s*\d{4}\b'
+    
+    # Search for the PRN number in the input string
+    match = re.search(pattern, input_string)
+
+    if match:
+        if match.group(1) and match.group(2):
+            # Concatenate the captured groups and remove spaces
+            prn_number = f"2021{match.group(1)}{match.group(2)}"
+        else:
+            # For the alternative matching case (202XXXYYYY)
+            prn_number = match.group(0).replace(' ', '')
+        return prn_number
+    else:
+        return None  # Return None if no match is found
+
 
 # Define a route to handle form submission
 @app.route("/submit_questionpaper/<int:test_id>",methods=['GET', 'POST'])
