@@ -12,6 +12,8 @@ import signal
 import sys
 import matplotlib
 import boto3
+import nltk
+
 
 matplotlib.use('Agg')
 
@@ -39,7 +41,7 @@ class Student(db.Model):
     total_marks = db.Column(db.Integer)
        # Add test_id as a foreign key referencing the ClassesTests table
     test_id = db.Column(db.Integer, db.ForeignKey('classes_tests.id'), nullable=True)  # Adjust the table name as needed
-
+    marks_details = db.Column(db.JSON)  # Store detailed marks for each question as a JSON object
     # Relationship to access the related test information
     class_test = db.relationship('ClassesTests', back_populates='students')  # This will point to 'students' in ClassesTests
 
@@ -396,6 +398,12 @@ def generate_result(test_id):
         # standard_answer = request.form['standard_answer']
         # marks = int(request.form['marks'])
               # Initialize Textract client
+              # Initialize Textract client
+            textract_client  = boto3.client(
+            'textract',
+            aws_access_key_id='AKIASFUIRR42GZPBWOSB',
+            aws_secret_access_key='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',
+            region_name='us-east-1')
            
 
              #Process Image
@@ -483,6 +491,11 @@ def generate_result(test_id):
         marks_scored = 0
 
         total_question_marks = 0
+
+        student_marks_details = {}  # Dictionary to store question marks details
+
+        
+        print("======================================")
         
         for key,value in questions.items():
             # print('here-' ,value)
@@ -491,36 +504,23 @@ def generate_result(test_id):
             answer_2 = answers_db[question_index].answer
 
         
-
-
-            # # Preprocess the text by removing punctuation and converting to lowercase
-            # translator = str.maketrans('', '', string.punctuation)
-            # answer_1 = answer_1.translate(translator).lower()
-            # answer_2 = answer_2.translate(translator).lower()
-
-            # # Tokenize the text by splitting on whitespace
-            # tokens_1 = nltk.word_tokenize(answer_1)
-            # tokens_2 = nltk.word_tokenize(answer_2)
-
-            # # Create a set of unique tokens
-            # unique_tokens = set(tokens_1 + tokens_2)
-
-            # # Vectorize the text using TF-IDF
-            # vectorizer = TfidfVectorizer(vocabulary=unique_tokens)
-            # vectors = vectorizer.fit_transform([answer_1, answer_2]).toarray()
-
-            # # Calculate the cosine similarity between the two vectors
-            # similarity = cosine_similarity([vectors[0]], [vectors[1]])[0][0]
-
-            # # Generate the percentage of correctness
-            # percentage_correct = similarity * 100
             percentage_correct = compare_answers(answer_1,answer_2)
 
             total_question_marks += int(answers_db[question_index].question_marks)
 
             student_marks = (int(percentage_correct) / 100) * int(answers_db[question_index].question_marks)
 
+            print("Question index - ",question_index, "Student Marks - ", student_marks, "/",answers_db[question_index].question_marks  )
+            # Store marks for the current question in the dictionary with 'qX' as key
+           
+
             student_marks = round(student_marks)
+
+              # Store both student marks and total question marks in the dictionary
+            student_marks_details[f'Q{question_index + 1}'] = {
+                'student_marks': student_marks,
+                'total_marks': int(answers_db[question_index].question_marks)
+            }
 
             marks_scored += student_marks
 
@@ -528,9 +528,12 @@ def generate_result(test_id):
             question_index += 1
         print("total makrs scored - ",marks_scored)
 
+        print("======================================")
+
+
 
         # Insert data into the database
-        student = Student(roll=roll_number, marks=marks_scored,total_marks=total_question_marks,test_id=test_id)
+        student = Student(roll=roll_number, marks=marks_scored,total_marks=total_question_marks,test_id=test_id,marks_details=student_marks_details)
         db.session.add(student)
         db.session.commit()
         
@@ -560,30 +563,25 @@ def generate_result(test_id):
         
      
         # Render the HTML template with the uploaded image file, textarea, and pie chart
-        return render_template('result.html',test_id=test_record,image_path=uploaded_files, student_marks=marks_scored, chart_path=chart_path,total_marks=total_question_marks,student_percentage=percentage_student,roll_number=roll_number)
+        return render_template('result.html',test_id=test_record,image_path=uploaded_files, student_marks=marks_scored, chart_path=chart_path,total_marks=total_question_marks,student_percentage=percentage_student,roll_number=roll_number,student=student)
    
         
 
     return render_template('generate_result.html',test_id=test_id)
 
 def extract_prn_number(input_string):
-    # Define the regex pattern to match the PRN number
-    # The pattern matches a number starting with 2021 followed by any 11 digits
-    pattern = r'\b2021[\s]*(\d{5})[\s]*(\d{4})|202\s*\d{3}\s*\d{4}\b'
+    # Define the regex pattern to match exactly 12-digit PRN numbers (starting with 2021) with optional spaces between digits
+    pattern = r'2021\s*(\d\s*\d\s*\d\s*\d)\s*(\d\s*\d\s*\d\s*\d)'
     
     # Search for the PRN number in the input string
     match = re.search(pattern, input_string)
 
     if match:
-        if match.group(1) and match.group(2):
-            # Concatenate the captured groups and remove spaces
-            prn_number = f"2021{match.group(1)}{match.group(2)}"
-        else:
-            # For the alternative matching case (202XXXYYYY)
-            prn_number = match.group(0).replace(' ', '')
+        # Remove all spaces from the matched groups and return the full PRN number
+        prn_number = '2021' + match.group(1).replace(' ', '') + match.group(2).replace(' ', '')
         return prn_number
     else:
-        return None  # Return None if no match is found
+        return None  # Return None if no match is found
 
 
 # Define a route to handle form submission

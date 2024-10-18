@@ -109,11 +109,24 @@
                      <th>Subject</th>
                      <th>Marks Obtained</th>
                      <th>Total Marks</th>
+                     <th>Question-wise Details</th>
                   </tr>
                   <tr>
                      <td>{{test_id.test_subject}}</td>
                      <td>{{student_marks}}</td>
                      <td>{{total_marks}}</td>
+                     <td>
+                        <table>
+            
+                            <tbody>
+                                {% for question, details in student.marks_details.items() %}
+                                <tr>
+                                    <td>{{ question }} => <span style="color: #2E8B57; font-weight: bold;">{{ details.student_marks }}</span> out of {{ details.total_marks }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </td>
                   </tr>
 
                   <tr>
@@ -130,6 +143,8 @@
       </div>
 
    </div>
+
+   
 
    <div class="print-page-break"></div>
 
