@@ -1,4 +1,4 @@
-# 📝 Subjective Analysis Project
+# 📝 Automated Student Answer Sheet Evaluation System
 
 Automate the grading of student answer sheets using Google Cloud Vision API for text extraction and NLP techniques for intelligent answer comparison.
 
@@ -19,7 +19,6 @@ Automate the grading of student answer sheets using Google Cloud Vision API for 
 - [📌 Prerequisites](#-prerequisites)
 - [⚡ Setup Instructions](#-setup-instructions)
 - [🛠 Technologies Used](#-technologies-used)
-- [📄 License](#-license)
 - [🙌 Contributing](#-contributing)
 - [📞 Contact](#-contact)
 
@@ -91,19 +90,13 @@ python manage.py runserver
 | Technology       | Purpose                      |
 |-----------------|-----------------------------|
 | Python 3.10.9   | Backend logic                |
-| Django          | Web framework                |
+| Flask          | Web framework                |
 | MySQL           | Database management          |
 | Google Cloud Vision API | OCR for text extraction |
 | Natural Language Processing (NLP) | Intelligent answer comparison |
 | Bootstrap 5     | Frontend styling             |
 
----
 
-## 📄 License
-
-This project is licensed under the **MIT License**. See the [LICENSE](LICENSE) file for more details.
-
----
 
 ## 🙌 Contributing
 
@@ -121,9 +114,8 @@ This project is licensed under the **MIT License**. See the [LICENSE](LICENSE) f
 
 💬 Have questions? Reach out to me:
 
-📧 Email: [your-email@example.com](mailto:your-email@example.com)  
-🐦 Twitter: [@your-handle](https://twitter.com/your-handle)  
-📷 LinkedIn: [Your Profile](https://linkedin.com/in/your-profile)
+📧 Email: [kpthebaa@gmail.com](mailto:kpthebaa@gmail.com)  
+📷 LinkedIn: [Kunal Pandharkar](https://www.linkedin.com/in/kunal-pandharkar)
 
 ---
 
